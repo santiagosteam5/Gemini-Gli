@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Send, Paperclip, Mic, Command } from "lucide-react"
+import { Send, Paperclip, Command } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 import { GeminiButton } from "./GeminiButton"
 
@@ -111,7 +111,7 @@ export function GeminiInput({
           }}
           placeholder={placeholder}
           disabled={disabled}
-          className="min-h-[60px] max-h-[200px] resize-none border-0 focus:ring-0 bg-transparent rounded-2xl pr-32 text-[#202124] dark:text-[#e8eaed] placeholder-[#5f6368] dark:placeholder-[#9aa0a6]"
+          className="min-h-[60px] max-h-[200px] resize-none border-0 focus:ring-0 bg-transparent rounded-2xl pr-24 text-[#202124] dark:text-[#e8eaed] placeholder-[#5f6368] dark:placeholder-[#9aa0a6]"
         />
 
         {/* Action Buttons */}
@@ -123,14 +123,6 @@ export function GeminiInput({
             whileTap={{ scale: 0.9 }}
           >
             <Paperclip className="w-4 h-4" />
-          </motion.button>
-
-          <motion.button
-            className="p-2 text-[#5f6368] dark:text-[#9aa0a6] hover:text-[#4285f4] hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-          >
-            <Mic className="w-4 h-4" />
           </motion.button>
 
           <GeminiButton

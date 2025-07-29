@@ -14,7 +14,6 @@ A modern, feature-rich desktop application for interacting with Google's Gemini 
 - **Real-time Streaming**: Live responses with typing indicators
 - **Conversation Management**: Create, pin, delete, and organize conversations
 - **Smart Suggestions**: AI-powered prompt suggestions
-- **Token Usage Tracking**: Monitor your API usage with visual indicators
 
 ### **Advanced File Upload System**
 - **Universal File Support**: Drag & drop from anywhere or use file dialogs

@@ -111,7 +111,7 @@ function GeminiDesktopAppContent() {
         timestamp: new Date(),
         isPinned: false,
         model: GEMINI_MODELS[0],
-        tokenUsage: 1250,
+        tokenUsage: 0,
         messages: [
           {
             id: "1",
@@ -119,7 +119,6 @@ function GeminiDesktopAppContent() {
               "Hello! I'm Gemini, your AI assistant. I can help you with coding, analysis, creative writing, math problems, and much more. What would you like to explore today?",
             role: "assistant",
             timestamp: new Date(),
-            tokens: 45,
           },
         ],
       }
@@ -201,7 +200,6 @@ function GeminiDesktopAppContent() {
       content: `📁 Uploaded file: ${fileName}`,
       role: "user",
       timestamp: new Date(),
-      tokens: Math.ceil(fileName.length / 4),
     }
 
     // Update conversation with user message
@@ -213,7 +211,6 @@ function GeminiDesktopAppContent() {
               messages: [...conv.messages, userMessage],
               lastMessage: `Uploaded file: ${fileName}`,
               timestamp: new Date(),
-              tokenUsage: conv.tokenUsage + (userMessage.tokens || 0),
             }
           : conv,
       ),
@@ -261,8 +258,6 @@ function GeminiDesktopAppContent() {
         throw new Error('Received empty response from Gemini.');
       }
 
-      const responseTokens = Math.ceil(geminiResponse.length / 4)
-
       // Detect code blocks in the response
       const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g
       const codeBlocks: GeminiCodeBlock[] = []
@@ -283,7 +278,6 @@ function GeminiDesktopAppContent() {
         content: geminiResponse,
         role: "assistant",
         timestamp: new Date(),
-        tokens: responseTokens,
         codeBlocks: codeBlocks.length > 0 ? codeBlocks : undefined,
       }
 
@@ -297,7 +291,6 @@ function GeminiDesktopAppContent() {
                 lastMessage: geminiResponse.length > 50 
                   ? geminiResponse.substring(0, 50) + "..." 
                   : geminiResponse,
-                tokenUsage: conv.tokenUsage + responseTokens,
               }
             : conv,
         ),
@@ -312,7 +305,6 @@ function GeminiDesktopAppContent() {
         content: `Sorry, I encountered an error while analyzing the file "${fileName}": ${error instanceof Error ? error.message : 'Unknown error'}`,
         role: "assistant",
         timestamp: new Date(),
-        tokens: 20,
       }
 
       updateConversations((prev) =>
@@ -322,7 +314,6 @@ function GeminiDesktopAppContent() {
                 ...conv,
                 messages: [...conv.messages, errorMessage],
                 lastMessage: "Error analyzing file",
-                tokenUsage: conv.tokenUsage + 20,
               }
             : conv,
         ),
@@ -343,7 +334,6 @@ function GeminiDesktopAppContent() {
       role: "user",
       timestamp: new Date(),
       files: files.length > 0 ? [...files] : undefined,
-      tokens: Math.ceil(input.length / 4),
     }
 
     const userInput = input;
@@ -358,7 +348,6 @@ function GeminiDesktopAppContent() {
               lastMessage: input || "Sent files",
               timestamp: new Date(),
               title: conv.messages.length === 0 ? input.slice(0, 40) + "..." : conv.title,
-              tokenUsage: conv.tokenUsage + (userMessage.tokens || 0),
               model: selectedModel, // Update conversation model
             }
           : conv,
@@ -446,9 +435,6 @@ function GeminiDesktopAppContent() {
         throw new Error('Received empty response from Gemini. This might indicate a quota limit or service issue.');
       }
 
-      // Estimar tokens de la respuesta
-      const responseTokens = Math.ceil(geminiResponse.length / 4)
-
       // Detectar bloques de código en la respuesta
       const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g
       const codeBlocks: GeminiCodeBlock[] = []
@@ -469,7 +455,6 @@ function GeminiDesktopAppContent() {
         content: geminiResponse,
         role: "assistant",
         timestamp: new Date(),
-        tokens: responseTokens,
         codeBlocks: codeBlocks.length > 0 ? codeBlocks : undefined,
       }
 
@@ -483,7 +468,6 @@ function GeminiDesktopAppContent() {
                 lastMessage: geminiResponse.length > 50 
                   ? geminiResponse.substring(0, 50) + "..." 
                   : geminiResponse,
-                tokenUsage: conv.tokenUsage + responseTokens,
               }
             : conv,
         ),
@@ -499,7 +483,6 @@ function GeminiDesktopAppContent() {
         content: `Sorry, I encountered an error while processing your request: ${error instanceof Error ? error.message : 'Unknown error'}`,
         role: "assistant",
         timestamp: new Date(),
-        tokens: 20,
       }
 
       updateConversations((prev) =>
@@ -509,7 +492,6 @@ function GeminiDesktopAppContent() {
                 ...conv,
                 messages: [...conv.messages, errorMessage],
                 lastMessage: "Error occurred",
-                tokenUsage: conv.tokenUsage + 20,
               }
             : conv,
         ),
@@ -662,7 +644,6 @@ function GeminiDesktopAppContent() {
           model: activeConversation.model.name,
           messages: activeConversation.messages,
           timestamp: new Date().toISOString(),
-          tokenUsage: activeConversation.tokenUsage,
           format,
         }
         content = JSON.stringify(data, null, 2)
@@ -677,7 +658,6 @@ function GeminiDesktopAppContent() {
         "",
         `**Model:** ${activeConversation.model.name}`,
         `**Date:** ${formatDate(activeConversation.timestamp)}`,
-        `**Token Usage:** ${activeConversation.tokenUsage}`,
         "",
         "---",
         ""
@@ -758,7 +738,6 @@ function GeminiDesktopAppContent() {
         // Metadata
         addWrappedText(`Model: ${activeConversation.model.name}`, 10)
         addWrappedText(`Date: ${formatDate(activeConversation.timestamp)}`, 10)
-        addWrappedText(`Token Usage: ${activeConversation.tokenUsage}`, 10)
         yPosition += 10
         
         // Messages
@@ -1154,14 +1133,9 @@ function GeminiDesktopAppContent() {
                                   <span className="text-[#5f6368] dark:text-[#9aa0a6] text-xs">
                                     {conversation.timestamp.toLocaleDateString()}
                                   </span>
-                                  <div className="flex items-center space-x-2">
-                                    <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">
-                                      {conversation.tokenUsage}
-                                    </span>
-                                    <span className="text-xs text-[#5f6368] dark:text-[#9aa0a6]">
-                                      {conversation.model.name.split(" ")[1]}
-                                    </span>
-                                  </div>
+                                  <span className="text-xs text-[#5f6368] dark:text-[#9aa0a6]">
+                                    {conversation.model.name.split(" ")[1]}
+                                  </span>
                                 </div>
                               </div>
                             </div>
@@ -1279,19 +1253,6 @@ function GeminiDesktopAppContent() {
                   {apiStatus === "connected" ? "Connected to Gemini CLI" : 
                    apiStatus === "connecting" ? "Connecting..." : "Connection Error"}
                 </span>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <span>Tokens:</span>
-                <div className="w-16 h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full bg-gradient-to-r from-[#4285f4] to-[#9c27b0]"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${((activeConversation?.tokenUsage || 0) / 32000) * 100}%` }}
-                    transition={{ duration: 0.5 }}
-                  />
-                </div>
-                <span>{activeConversation?.tokenUsage || 0}/32,000</span>
               </div>
             </div>
 

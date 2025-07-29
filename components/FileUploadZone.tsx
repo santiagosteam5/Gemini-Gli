@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Upload, X, File, ImageIcon, FileText } from "lucide-react"
+import { Upload, X, File, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import type { FileAttachment } from "../types"
@@ -56,7 +56,6 @@ export function FileUploadZone({ files, onFilesChange, maxFiles = 10 }: FileUplo
   }
 
   const getFileIcon = (type: string) => {
-    if (type.startsWith("image/")) return <ImageIcon className="w-5 h-5" />
     if (type.includes("text") || type.includes("document")) return <FileText className="w-5 h-5" />
     return <File className="w-5 h-5" />
   }
@@ -138,17 +137,6 @@ export function FileUploadZone({ files, onFilesChange, maxFiles = 10 }: FileUplo
                   <div className="space-y-2">
                     <Progress value={file.uploadProgress} className="h-1" />
                     <p className="text-xs text-gray-500">{Math.round(file.uploadProgress)}% uploaded</p>
-                  </div>
-                )}
-
-                {/* File Preview */}
-                {file.type.startsWith("image/") && (
-                  <div className="mt-3">
-                    <img
-                      src={file.url || "/placeholder.svg"}
-                      alt={file.name}
-                      className="w-full h-20 object-cover rounded"
-                    />
                   </div>
                 )}
               </motion.div>

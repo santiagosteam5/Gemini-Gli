@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useCallback, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Upload, X, File, ImageIcon, FileText, Code, Copy, FolderPlus } from "lucide-react"
+import { Upload, X, File, FileText, Code, Copy, FolderPlus } from "lucide-react"
 import { GeminiButton } from "./GeminiButton"
 import { useElectron } from "../hooks/useElectron"
 import { useWorkingDirectory } from "../contexts/WorkingDirectoryContext"
@@ -90,7 +90,7 @@ export function GeminiFileUpload({
             size: file.size,
             url: URL.createObjectURL(file),
             uploadProgress: 0,
-            thumbnail: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
+            thumbnail: undefined,
             copyStatus: 'pending',
           }))
 
@@ -274,7 +274,6 @@ export function GeminiFileUpload({
   }
 
   const getFileIcon = (type: string) => {
-    if (type.startsWith("image/")) return <ImageIcon className="w-5 h-5 text-[#4285f4]" />
     if (type.includes("text") || type.includes("document")) return <FileText className="w-5 h-5 text-[#ea4335]" />
     if (type.includes("code") || type.includes("javascript") || type.includes("python"))
       return <Code className="w-5 h-5 text-[#9c27b0]" />
@@ -332,7 +331,7 @@ export function GeminiFileUpload({
           </h3>
           <p className="text-[#5f6368] dark:text-[#9aa0a6] mb-4">Drag and drop files here, or click to browse</p>
           <p className="text-sm text-[#5f6368] dark:text-[#9aa0a6] mb-4">
-            Supports images, documents, and code files up to {formatFileSize(maxSize)}
+            Supports documents and code files up to {formatFileSize(maxSize)}
           </p>
 
           <GeminiButton variant="secondary" onClick={handleChooseFiles}>
@@ -424,17 +423,6 @@ export function GeminiFileUpload({
                     {file.copyError && (
                       <p className="text-xs text-red-600 dark:text-red-400">{file.copyError}</p>
                     )}
-                  </div>
-                )}
-
-                {/* File Preview */}
-                {file.thumbnail && (
-                  <div className="mt-3">
-                    <img
-                      src={file.thumbnail || "/placeholder.svg"}
-                      alt={file.name}
-                      className="w-full h-24 object-cover rounded-lg"
-                    />
                   </div>
                 )}
               </motion.div>
