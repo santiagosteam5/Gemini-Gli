@@ -32,9 +32,33 @@ function createWindow() {
   });
 
   // Load the app
-  const startUrl = isDev 
-    ? 'http://localhost:3000' 
-    : `file://${path.join(__dirname, '../out/index.html')}`;
+  let startUrl;
+  
+  if (isDev) {
+    startUrl = 'http://localhost:3000';
+  } else {
+    // In production with asar packaging, files are in different locations
+    const possiblePaths = [
+      path.join(__dirname, '../out/index.html'), // Standard next to electron.js
+      path.join(app.getAppPath(), 'out/index.html'), // Inside asar
+      path.join(process.resourcesPath, 'app.asar', 'out/index.html'), // asar path
+      path.join(process.resourcesPath, 'app', 'out/index.html'), // unpacked path
+    ];
+    
+    let indexPath = path.join(app.getAppPath(), 'out/index.html'); // Default to asar path
+    
+    console.log('App path:', app.getAppPath());
+    console.log('Resources path:', process.resourcesPath);
+    console.log('Trying paths:', possiblePaths);
+    
+    // For asar packaging, the path should work directly with getAppPath
+    startUrl = `file://${indexPath}`;
+  }
+  
+  console.log('Loading URL:', startUrl);
+  console.log('__dirname:', __dirname);
+  console.log('isDev:', isDev);
+  console.log('app.isPackaged:', app.isPackaged);
   
   mainWindow.loadURL(startUrl);
 
@@ -43,10 +67,16 @@ function createWindow() {
     mainWindow.show();
   });
 
-  // Open DevTools in development
-  if (isDev) {
+  // Open DevTools in development or if DEBUG environment variable is set
+  if (isDev || process.env.DEBUG) {
     mainWindow.webContents.openDevTools();
   }
+
+  // Handle page load errors
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error('Failed to load:', validatedURL, 'Error:', errorDescription);
+    // Try loading a fallback or show an error page
+  });
 
   // Handle window closed
   mainWindow.on('closed', () => {

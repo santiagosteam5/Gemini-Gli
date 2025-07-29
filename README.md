@@ -7,16 +7,16 @@ A modern, feature-rich desktop application for interacting with Google's Gemini 
 ![Built with Electron](https://img.shields.io/badge/Electron-Latest-blue?style=flat-square&logo=electron)
 ![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue?style=flat-square&logo=typescript)
 
-## ✨ Features
+## Features
 
-### 🤖 **AI Conversations**
+### **AI Conversations**
 - **Multiple Model Support**: Switch between Gemini 2.5 Flash and Gemini 2.5 Pro
 - **Real-time Streaming**: Live responses with typing indicators
 - **Conversation Management**: Create, pin, delete, and organize conversations
 - **Smart Suggestions**: AI-powered prompt suggestions
 - **Token Usage Tracking**: Monitor your API usage with visual indicators
 
-### 📁 **Advanced File Upload System**
+### **Advanced File Upload System**
 - **Universal File Support**: Drag & drop from anywhere or use file dialogs
 - **Automatic File Copying**: Files are copied to your CLI working directory
 - **Intelligent File Analysis**: Automatically analyze uploaded files with Gemini
@@ -26,25 +26,25 @@ A modern, feature-rich desktop application for interacting with Google's Gemini 
   - Drag files from browser or other applications
 - **Real-time Progress**: Visual feedback for file copying and processing
 
-### 🖥️ **Professional Desktop Experience**
+### **Professional Desktop Experience**
 - **Native Window Controls**: Minimize, maximize, close with custom styling
 - **Responsive Design**: Optimized for desktop with collapsible sidebars
 - **Dark/Light Themes**: Auto-switching based on system preferences
 - **CLI Integration**: Built-in terminal panel for direct Gemini CLI access
 - **Export Options**: Save conversations as Markdown, PDF, or JSON
 
-### 🔧 **Advanced CLI Features**
+### **Advanced CLI Features**
 - **Smart Autocompletion**: Context-aware command suggestions
 - **Working Directory Management**: Visual working directory indicator
 - **Command History**: Navigate through previous commands
 - **Model-specific Commands**: Pre-configured commands for different models
 
-### 💾 **Data Persistence**
+### **Data Persistence**
 - **Local Storage**: All conversations saved locally
 - **Session Recovery**: Restore your work after app restarts
 - **Export/Import**: Backup your conversations
 
-## 📋 Prerequisites
+## Prerequisites
 
 Before installing and using Gemini Chat Desktop, ensure you have the following installed:
 
@@ -80,7 +80,7 @@ You need a Google AI Studio API key to authenticate with Gemini.
 3. Generate an API key
 4. **Important**: Keep your API key secure and never share it publicly
 
-## 🚀 Installation & Setup
+## Installation & Setup
 
 ### Step 1: Clone the Repository
 ```bash
@@ -127,7 +127,7 @@ npm run build
 npm run electron-pack
 ```
 
-## 🎮 Usage Guide
+## Usage Guide
 
 ### First Launch
 1. **Start the application** using `npm run electron`
@@ -157,7 +157,7 @@ npm run electron-pack
 - **Gemini 2.5 Flash**: Fast, efficient, higher daily quota (recommended)
 - **Gemini 2.5 Pro**: Advanced reasoning, limited daily quota
 
-## 🔧 Configuration
+## Configuration
 
 ### Working Directory
 The application automatically manages your working directory for CLI operations. Files uploaded through the interface are copied to this directory for seamless integration.
@@ -174,7 +174,7 @@ Export your conversations in multiple formats:
 - **PDF**: For presentations and reports  
 - **JSON**: For data backup and analysis
 
-## 🛠️ Development
+## Development
 
 ### Project Structure
 ```
@@ -204,7 +204,7 @@ npm run electron     # Launch Electron app
 npm run electron-dev # Electron in development mode
 ```
 
-## ⚠️ Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -251,18 +251,18 @@ DEBUG=* npm run electron
 4. Test thoroughly (especially file upload functionality)
 5. Submit a pull request
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **Google AI Studio** for providing the Gemini AI models
 - **Gemini CLI Team** for the command-line interface
 - **Next.js Team** for the excellent React framework
 - **Electron Team** for enabling desktop app development
 
-## 📞 Support
+## Support
 
 If you encounter issues:
 

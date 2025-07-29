@@ -1,6 +1,8 @@
 {
   "name": "gemini-gli",
   "version": "0.1.0",
+  "description": "A desktop application for Gemini AI chat with advanced CLI integration and file upload capabilities",
+  "author": "Gemini Chat Desktop Team",
   "private": true,
   "scripts": {
     "build": "next build",
@@ -10,7 +12,12 @@
     "electron": "electron .",
     "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
     "electron-build": "npm run build && electron-builder",
-    "dist": "npm run build && electron-builder --publish=never"
+    "dist": "npm run build && electron-builder --publish=never",
+    "dist:win": "npm run build && electron-builder --win --publish=never",
+    "dist:mac": "npm run build && electron-builder --mac --publish=never",
+    "dist:linux": "npm run build && electron-builder --linux --publish=never",
+    "pack": "npm run build && electron-builder --dir",
+    "postinstall": "electron-builder install-app-deps"
   },
   "main": "public/electron.js",
   "dependencies": {
@@ -48,6 +55,7 @@
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
     "date-fns": "^3.6.0",
+    "dotenv": "^17.2.1",
     "embla-carousel-react": "8.5.1",
     "framer-motion": "latest",
     "html2canvas": "^1.4.1",
@@ -56,6 +64,7 @@
     "lucide-react": "^0.454.0",
     "next": "15.2.4",
     "next-themes": "^0.4.4",
+    "node-fetch": "^2.7.0",
     "react": "^19",
     "react-day-picker": "^9.0.0",
     "react-dom": "^19",
@@ -82,29 +91,105 @@
     "wait-on": "^8.0.0"
   },
   "build": {
-    "appId": "com.gemini.gli.desktop",
-    "productName": "Gemini Gli",
+    "appId": "com.gemini.chat.desktop",
+    "productName": "Gemini Chat Desktop",
+    "copyright": "Copyright © 2025 Gemini Chat Desktop",
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "build"
     },
     "files": [
       "out/**/*",
       "public/electron.js",
       "public/preload.js",
       "public/placeholder-logo.png",
-      "node_modules/**/*"
+      "node_modules/**/*",
+      "!node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!node_modules/*.d.ts",
+      "!node_modules/.bin",
+      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
+      "!.editorconfig",
+      "!**/._*",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
+      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
+      "!**/{appveyor.yml,.travis.yml,circle.yml}",
+      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
+    ],
+    "extraResources": [
+      {
+        "from": "public/placeholder-logo.png",
+        "to": "placeholder-logo.png"
+      }
     ],
     "mac": {
       "category": "public.app-category.productivity",
-      "icon": "public/placeholder-logo.png"
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
     },
     "win": {
-      "target": "nsis",
-      "icon": "public/placeholder-logo.png"
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "requestedExecutionLevel": "asInvoker",
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "certificateFile": null,
+      "certificatePassword": null
     },
     "linux": {
-      "target": "AppImage",
-      "icon": "public/placeholder-logo.png"
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Office",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Gemini Chat Desktop",
+      "include": "build/installer.nsh"
+    },
+    "dmg": {
+      "title": "${productName} ${version}",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "publish": {
+      "provider": "github",
+      "releaseType": "release"
     }
   }
 }

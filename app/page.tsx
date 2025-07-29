@@ -371,25 +371,45 @@ function GeminiDesktopAppContent() {
     setApiStatus("connecting")
 
     try {
-      // Switch model first, then send the prompt
-      const command = `gemini -m "${selectedModel.id}" -p "${userInput}" --yolo`;
+      let data;
       
-      // Llamar al endpoint de Gemini CLI
-      const response = await fetch('/api/gemini', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          command: command,
-          cwd: currentDir, // Use the shared working directory
-        }),
-      })
+      // Check if we're in Electron environment
+      if (typeof window !== 'undefined' && window.electronAPI) {
+        console.log('Using Electron IPC for CLI command execution');
+        
+        // Switch model first, then send the prompt
+        const command = `gemini -m "${selectedModel.id}" -p "${userInput}" --yolo`;
+        
+        // Use Electron IPC to execute the CLI command
+        data = await window.electronAPI.executeCommand(command, currentDir);
+        
+        if (data.error) {
+          throw new Error(data.error);
+        }
+        
+      } else {
+        console.log('Using fetch API for Gemini CLI command');
+        
+        // Switch model first, then send the prompt
+        const command = `gemini -m "${selectedModel.id}" -p "${userInput}" --yolo`;
+        
+        // Llamar al endpoint de Gemini CLI
+        const response = await fetch('/api/gemini', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            command: command,
+            cwd: currentDir, // Use the shared working directory
+          }),
+        })
 
-      const data = await response.json()
+        data = await response.json()
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to get response from Gemini')
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to get response from Gemini')
+        }
       }
 
       // Check for API errors in the response

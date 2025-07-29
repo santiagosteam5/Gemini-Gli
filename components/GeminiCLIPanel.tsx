@@ -82,15 +82,27 @@ export function GeminiCLIPanel({ isOpen, onToggle }: GeminiCLIPanelProps) {
     try {
       let data;
       
+      // Debug: Check if we're in Electron
+      console.log('Debug: window type:', typeof window);
+      console.log('Debug: electronAPI exists:', typeof window !== 'undefined' && !!window.electronAPI);
+      console.log('Debug: electronAPI:', window.electronAPI);
+      
       // Use IPC in Electron for better performance, fallback to API
       if (typeof window !== 'undefined' && window.electronAPI) {
+        console.log('Using Electron IPC for command execution');
         data = await window.electronAPI.executeCommand(newCommand.command, currentDir);
       } else {
+        console.log('Using fetch API for command execution');
         const res = await fetch("/api/gemini", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ command: newCommand.command, cwd: currentDir }),
         })
+        
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        
         data = await res.json()
       }
 
