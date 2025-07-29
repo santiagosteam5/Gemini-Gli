@@ -30,12 +30,36 @@ export function useElectron() {
     return response.json();
   };
 
+  const copyFile = async (sourcePath: string, destinationDir: string, fileName: string) => {
+    if (electronAPI?.copyFile) {
+      return electronAPI.copyFile(sourcePath, destinationDir, fileName);
+    }
+    throw new Error('File copying is only available in Electron');
+  };
+
+  const writeFile = async (content: ArrayBuffer, destinationDir: string, fileName: string) => {
+    if (electronAPI?.writeFile) {
+      return electronAPI.writeFile(content, destinationDir, fileName);
+    }
+    throw new Error('File writing is only available in Electron');
+  };
+
+  const readFile = async (filePath: string) => {
+    if (electronAPI?.readFile) {
+      return electronAPI.readFile(filePath);
+    }
+    throw new Error('File reading is only available in Electron');
+  };
+
   return {
     isElectron,
     minimizeWindow,
     maximizeWindow,
     closeWindow,
     executeCommand,
+    copyFile,
+    writeFile,
+    readFile,
     platform: electronAPI?.platform || 'web',
   };
 }

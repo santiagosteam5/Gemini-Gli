@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Search,
@@ -190,6 +190,149 @@ function GeminiDesktopAppContent() {
       return updatedConversations
     })
   }
+
+  // Handle file processing (when a file is copied and read)
+  const handleFileProcessed = useCallback(async (fileName: string, content: string) => {
+    if (!activeConversation) return
+
+    // Create user message for file upload
+    const userMessage: GeminiMessageType = {
+      id: Date.now().toString(),
+      content: `📁 Uploaded file: ${fileName}`,
+      role: "user",
+      timestamp: new Date(),
+      tokens: Math.ceil(fileName.length / 4),
+    }
+
+    // Update conversation with user message
+    updateConversations((prev) =>
+      prev.map((conv) =>
+        conv.id === activeConversationId
+          ? {
+              ...conv,
+              messages: [...conv.messages, userMessage],
+              lastMessage: `Uploaded file: ${fileName}`,
+              timestamp: new Date(),
+              tokenUsage: conv.tokenUsage + (userMessage.tokens || 0),
+            }
+          : conv,
+      ),
+    )
+
+    setIsLoading(true)
+    setApiStatus("connecting")
+
+    try {
+      // Create Gemini command to read the file
+      const command = `gemini -m "${selectedModel.id}" -p "Read and analyze the file '${fileName}'. Provide a summary of its contents and explain what this file does." --yolo`;
+      
+      const response = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          command: command,
+          cwd: currentDir,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to analyze file with Gemini')
+      }
+
+      if (data.stderr) {
+        const errorOutput = data.stderr.toLowerCase();
+        if (errorOutput.includes('quota exceeded') || errorOutput.includes('429')) {
+          throw new Error('Daily quota limit reached. Try switching to a different model.');
+        }
+        if (errorOutput.includes('404') || errorOutput.includes('not found')) {
+          throw new Error(`File "${fileName}" not found in working directory.`);
+        }
+        throw new Error(`Gemini CLI Error: ${data.stderr}`);
+      }
+
+      let geminiResponse = data.stdout || 'File processed successfully'
+      geminiResponse = geminiResponse.trim()
+
+      if (!geminiResponse || geminiResponse.length < 3) {
+        throw new Error('Received empty response from Gemini.');
+      }
+
+      const responseTokens = Math.ceil(geminiResponse.length / 4)
+
+      // Detect code blocks in the response
+      const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g
+      const codeBlocks: GeminiCodeBlock[] = []
+      let match
+      let blockIndex = 0
+
+      while ((match = codeBlockRegex.exec(geminiResponse)) !== null) {
+        codeBlocks.push({
+          id: `code-${Date.now()}-${blockIndex}`,
+          language: match[1] || 'text',
+          code: match[2].trim(),
+        })
+        blockIndex++
+      }
+
+      const aiMessage: GeminiMessageType = {
+        id: (Date.now() + 1).toString(),
+        content: geminiResponse,
+        role: "assistant",
+        timestamp: new Date(),
+        tokens: responseTokens,
+        codeBlocks: codeBlocks.length > 0 ? codeBlocks : undefined,
+      }
+
+      // Update conversation with Gemini's response
+      updateConversations((prev) =>
+        prev.map((conv) =>
+          conv.id === activeConversationId
+            ? {
+                ...conv,
+                messages: [...conv.messages, aiMessage],
+                lastMessage: geminiResponse.length > 50 
+                  ? geminiResponse.substring(0, 50) + "..." 
+                  : geminiResponse,
+                tokenUsage: conv.tokenUsage + responseTokens,
+              }
+            : conv,
+        ),
+      )
+
+      setApiStatus("connected")
+    } catch (error) {
+      console.error('Error analyzing file:', error)
+      
+      const errorMessage: GeminiMessageType = {
+        id: (Date.now() + 1).toString(),
+        content: `Sorry, I encountered an error while analyzing the file "${fileName}": ${error instanceof Error ? error.message : 'Unknown error'}`,
+        role: "assistant",
+        timestamp: new Date(),
+        tokens: 20,
+      }
+
+      updateConversations((prev) =>
+        prev.map((conv) =>
+          conv.id === activeConversationId
+            ? {
+                ...conv,
+                messages: [...conv.messages, errorMessage],
+                lastMessage: "Error analyzing file",
+                tokenUsage: conv.tokenUsage + 20,
+              }
+            : conv,
+        ),
+      )
+
+      setApiStatus("error")
+    } finally {
+      setIsLoading(false)
+    }
+  }, [activeConversation, selectedModel, currentDir, activeConversationId])
 
   const sendMessage = async () => {
     if (!input.trim() && files.length === 0) return
@@ -470,24 +613,181 @@ function GeminiDesktopAppContent() {
     updateConversations((prev) => prev.filter((conv) => conv.id !== conversationId))
   }
 
-  const exportConversation = (format: "markdown" | "pdf" | "json") => {
+  const exportConversation = async (format: "markdown" | "pdf" | "json") => {
     if (!activeConversation) return
 
-    const data = {
-      title: activeConversation.title,
-      model: activeConversation.model.name,
-      messages: activeConversation.messages,
-      timestamp: new Date().toISOString(),
-      tokenUsage: activeConversation.tokenUsage,
-      format,
+    const formatDate = (date: Date) => {
+      return date.toLocaleString()
     }
 
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `${activeConversation.title}.${format === "json" ? "json" : format}`
-    a.click()
+    let content: string
+    let mimeType: string
+    let fileExtension: string
+
+    switch (format) {
+      case "markdown":
+        content = generateMarkdown()
+        mimeType = "text/markdown"
+        fileExtension = "md"
+        break
+      
+      case "pdf":
+        await generatePDF()
+        return // PDF generation handles its own download
+      
+      case "json":
+      default:
+        const data = {
+          title: activeConversation.title,
+          model: activeConversation.model.name,
+          messages: activeConversation.messages,
+          timestamp: new Date().toISOString(),
+          tokenUsage: activeConversation.tokenUsage,
+          format,
+        }
+        content = JSON.stringify(data, null, 2)
+        mimeType = "application/json"
+        fileExtension = "json"
+        break
+    }
+
+    function generateMarkdown(): string {
+      const lines = [
+        `# ${activeConversation.title}`,
+        "",
+        `**Model:** ${activeConversation.model.name}`,
+        `**Date:** ${formatDate(activeConversation.timestamp)}`,
+        `**Token Usage:** ${activeConversation.tokenUsage}`,
+        "",
+        "---",
+        ""
+      ]
+
+      activeConversation.messages.forEach((message, index) => {
+        const role = message.role === "user" ? "👤 **You**" : "🤖 **Gemini**"
+        const timestamp = formatDate(message.timestamp)
+        
+        lines.push(`## ${role}`)
+        lines.push(`*${timestamp}*`)
+        lines.push("")
+        
+        // Handle code blocks in message content
+        if (message.codeBlocks && message.codeBlocks.length > 0) {
+          // Split content around code blocks and preserve them
+          let content = message.content
+          message.codeBlocks.forEach(codeBlock => {
+            content = content.replace(
+              `\`\`\`${codeBlock.language}\n${codeBlock.code}\n\`\`\``,
+              `\n\`\`\`${codeBlock.language}\n${codeBlock.code}\n\`\`\`\n`
+            )
+          })
+          lines.push(content)
+        } else {
+          lines.push(message.content)
+        }
+        
+        lines.push("")
+        
+        if (index < activeConversation.messages.length - 1) {
+          lines.push("---")
+          lines.push("")
+        }
+      })
+
+      return lines.join("\n")
+    }
+
+    async function generatePDF(): Promise<void> {
+      try {
+        // Dynamically import the libraries to avoid SSR issues
+        const { jsPDF } = await import('jspdf')
+        
+        const doc = new jsPDF()
+        const pageWidth = doc.internal.pageSize.getWidth()
+        const pageHeight = doc.internal.pageSize.getHeight()
+        const margin = 20
+        const maxLineWidth = pageWidth - (margin * 2)
+        
+        let yPosition = margin
+        
+        // Helper function to add text with word wrap
+        const addWrappedText = (text: string, fontSize: number = 12, isBold: boolean = false) => {
+          doc.setFontSize(fontSize)
+          doc.setFont("helvetica", isBold ? "bold" : "normal")
+          
+          const lines = doc.splitTextToSize(text, maxLineWidth)
+          
+          // Check if we need a new page
+          if (yPosition + (lines.length * fontSize * 0.5) > pageHeight - margin) {
+            doc.addPage()
+            yPosition = margin
+          }
+          
+          lines.forEach((line: string) => {
+            doc.text(line, margin, yPosition)
+            yPosition += fontSize * 0.5
+          })
+          
+          yPosition += 5 // Add some spacing
+        }
+        
+        // Title
+        addWrappedText(activeConversation.title, 18, true)
+        yPosition += 5
+        
+        // Metadata
+        addWrappedText(`Model: ${activeConversation.model.name}`, 10)
+        addWrappedText(`Date: ${formatDate(activeConversation.timestamp)}`, 10)
+        addWrappedText(`Token Usage: ${activeConversation.tokenUsage}`, 10)
+        yPosition += 10
+        
+        // Messages
+        activeConversation.messages.forEach((message, index) => {
+          const role = message.role === "user" ? "You" : "Gemini"
+          const timestamp = formatDate(message.timestamp)
+          
+          // Role header
+          addWrappedText(`${role} - ${timestamp}`, 14, true)
+          
+          // Message content
+          addWrappedText(message.content, 11)
+          
+          // Add separator between messages
+          if (index < activeConversation.messages.length - 1) {
+            yPosition += 5
+            if (yPosition > pageHeight - margin - 10) {
+              doc.addPage()
+              yPosition = margin
+            } else {
+              doc.line(margin, yPosition, pageWidth - margin, yPosition)
+              yPosition += 10
+            }
+          }
+        })
+        
+        // Save the PDF
+        doc.save(`${activeConversation.title}.pdf`)
+        
+      } catch (error) {
+        console.error('Error generating PDF:', error)
+        // Fallback to text-based PDF if complex generation fails
+        const { jsPDF } = await import('jspdf')
+        const doc = new jsPDF()
+        doc.text('PDF Export Error - Please try again', 20, 20)
+        doc.save(`${activeConversation.title}.pdf`)
+      }
+    }
+
+    // Download the file (for markdown and json)
+    if (format !== "pdf") {
+      const blob = new Blob([content], { type: mimeType })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `${activeConversation.title}.${fileExtension}`
+      a.click()
+      URL.revokeObjectURL(url)
+    }
   }
 
   const filteredConversations = conversations.filter(
@@ -930,8 +1230,6 @@ function GeminiDesktopAppContent() {
           {/* Input Area */}
           <div className="p-6 bg-white/80 dark:bg-[#2d2d2d]/80 backdrop-blur-xl border-t border-gray-200/50 dark:border-gray-700/50">
             <div className="max-w-[780px] mx-auto space-y-4">
-              {files.length > 0 && <GeminiFileUpload files={files} onFilesChange={setFiles} />}
-
               <GeminiInput
                 value={input}
                 onChange={setInput}
@@ -1014,7 +1312,7 @@ function GeminiDesktopAppContent() {
 
                 <div className="flex-1 p-4 overflow-y-auto">
                   {rightPanelTab === "files" ? (
-                    <GeminiFileUpload files={files} onFilesChange={setFiles} />
+                    <GeminiFileUpload files={files} onFilesChange={setFiles} onFileProcessed={handleFileProcessed} />
                   ) : (
                     <div className="space-y-6">
                       <div>

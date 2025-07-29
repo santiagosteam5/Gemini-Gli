@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const { exec } = require('child_process');
 const util = require('util');
+const fs = require('fs').promises;
 
 // Simple development check instead of electron-is-dev
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
@@ -196,4 +197,88 @@ ipcMain.handle('show-folder-dialog', async (event, options = {}) => {
     ...options
   });
   return result;
+});
+
+// IPC handler for file copying
+ipcMain.handle('copy-file', async (event, { sourcePath, destinationDir, fileName }) => {
+  try {
+    // Ensure destination directory exists
+    await fs.mkdir(destinationDir, { recursive: true });
+    
+    // Create destination path
+    const destinationPath = path.join(destinationDir, fileName);
+    
+    // Copy the file
+    await fs.copyFile(sourcePath, destinationPath);
+    
+    console.log(`File copied: ${sourcePath} -> ${destinationPath}`);
+    
+    return {
+      success: true,
+      destinationPath,
+      fileName
+    };
+  } catch (error) {
+    console.error(`Failed to copy file: ${error.message}`);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+// IPC handler for writing file content directly (for files without path access)
+ipcMain.handle('write-file', async (event, { content, destinationDir, fileName }) => {
+  try {
+    // Ensure destination directory exists
+    await fs.mkdir(destinationDir, { recursive: true });
+    
+    // Create destination path
+    const destinationPath = path.join(destinationDir, fileName);
+    
+    // Write the file content
+    await fs.writeFile(destinationPath, Buffer.from(content));
+    
+    console.log(`File written: ${destinationPath}`);
+    
+    return {
+      success: true,
+      destinationPath,
+      fileName
+    };
+  } catch (error) {
+    console.error(`Failed to write file: ${error.message}`);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+// IPC handler for reading file content (for small text files)
+ipcMain.handle('read-file', async (event, filePath) => {
+  try {
+    const stats = await fs.stat(filePath);
+    
+    // Limit file size to 1MB for safety
+    if (stats.size > 1024 * 1024) {
+      return {
+        success: false,
+        error: 'File is too large to read (>1MB)'
+      };
+    }
+    
+    const content = await fs.readFile(filePath, 'utf8');
+    
+    return {
+      success: true,
+      content,
+      size: stats.size
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    };
+  }
 });

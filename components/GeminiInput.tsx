@@ -30,6 +30,7 @@ export function GeminiInput({
   const [isFocused, setIsFocused] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !disabled) {
@@ -37,6 +38,20 @@ export function GeminiInput({
       onSubmit()
     }
   }
+
+  // Click outside handler to close suggestions
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -46,7 +61,7 @@ export function GeminiInput({
   }, [value])
 
   return (
-    <div className="relative">
+    <div ref={containerRef} className="relative">
       {/* Suggestions */}
       <AnimatePresence>
         {showSuggestions && suggestions.length > 0 && (
@@ -54,7 +69,7 @@ export function GeminiInput({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="absolute bottom-full mb-2 w-full bg-white dark:bg-[#2d2d2d] rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
+            className="absolute bottom-full mb-2 w-full bg-white dark:bg-[#2d2d2d] rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden z-50"
           >
             {suggestions.map((suggestion, index) => (
               <motion.button

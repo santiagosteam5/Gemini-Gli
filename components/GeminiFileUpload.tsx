@@ -2,15 +2,18 @@
 
 import type React from "react"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Upload, X, File, ImageIcon, FileText, Code } from "lucide-react"
+import { Upload, X, File, ImageIcon, FileText, Code, Copy, FolderPlus } from "lucide-react"
 import { GeminiButton } from "./GeminiButton"
+import { useElectron } from "../hooks/useElectron"
+import { useWorkingDirectory } from "../contexts/WorkingDirectoryContext"
 import type { GeminiFile } from "../types/gemini"
 
 interface GeminiFileUploadProps {
   files: GeminiFile[]
   onFilesChange: (files: GeminiFile[]) => void
+  onFileProcessed?: (fileName: string, content: string) => void
   maxFiles?: number
   maxSize?: number
 }
@@ -18,20 +21,149 @@ interface GeminiFileUploadProps {
 export function GeminiFileUpload({
   files,
   onFilesChange,
+  onFileProcessed,
   maxFiles = 10,
   maxSize = 10 * 1024 * 1024,
 }: GeminiFileUploadProps) {
   const [isDragOver, setIsDragOver] = useState(false)
+  const [localFiles, setLocalFiles] = useState<GeminiFile[]>([])
+  const { isElectron, copyFile, writeFile, readFile } = useElectron()
+  const { currentDir } = useWorkingDirectory()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Initialize local files only once from props
+  useEffect(() => {
+    if (files.length > 0 && localFiles.length === 0) {
+      setLocalFiles(files)
+    }
+  }, [files, localFiles.length])
+
+  const copyFileToWorkingDirectory = useCallback(async (file: File) => {
+    if (!isElectron) {
+      console.warn('File copying is only available in Electron')
+      return { success: false, error: 'File copying is only available in Electron' }
+    }
+
+    try {
+      // Check if the file has a path property (from file explorer drag & drop)
+      const tempPath = (file as any).path;
+      
+      if (tempPath) {
+        // Use direct file copy for files with path
+        console.log(`Copying file from path: ${tempPath}`);
+        const result = await copyFile(tempPath, currentDir, file.name);
+        return result;
+      } else {
+        // Use writeFile for files without path (from file dialog or browser drag)
+        console.log(`Writing file content: ${file.name}`);
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await writeFile(arrayBuffer, currentDir, file.name);
+        return result;
+      }
+    } catch (error) {
+      console.error('Error copying file:', error)
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  }, [isElectron, copyFile, writeFile, currentDir])
+
+  const isTextFile = (fileName: string) => {
+    const textExtensions = ['.txt', '.md', '.js', '.ts', '.jsx', '.tsx', '.py', '.html', '.css', '.json', '.xml', '.yaml', '.yml', '.sh', '.bat', '.sql', '.csv']
+    return textExtensions.some(ext => fileName.toLowerCase().endsWith(ext))
+  }
 
   const handleDrop = useCallback(
-    (e: React.DragEvent) => {
+    async (e: React.DragEvent) => {
       e.preventDefault()
       setIsDragOver(false)
 
       const droppedFiles = Array.from(e.dataTransfer.files)
-      const newFiles: GeminiFile[] = droppedFiles
+      
+      // Update files using the current state
+      setLocalFiles(currentFiles => {
+        const newFiles: GeminiFile[] = droppedFiles
+          .filter((file) => file.size <= maxSize)
+          .slice(0, maxFiles - currentFiles.length)
+          .map((file) => ({
+            id: Date.now().toString() + Math.random(),
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            url: URL.createObjectURL(file),
+            uploadProgress: 0,
+            thumbnail: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
+            copyStatus: 'pending',
+          }))
+
+        // Start copying files to working directory for each new file
+        newFiles.forEach(async (geminiFile) => {
+          const originalFile = droppedFiles.find(f => f.name === geminiFile.name)
+          if (originalFile) {
+            // Simulate upload progress while copying
+            let progress = 0
+            const progressInterval = setInterval(() => {
+              progress += Math.random() * 25 + 5
+              if (progress >= 100) {
+                progress = 100
+                clearInterval(progressInterval)
+              }
+              // Update progress using setLocalFiles
+              setLocalFiles(prevFiles => 
+                prevFiles.map((f) => 
+                  f.id === geminiFile.id ? { ...f, uploadProgress: progress } : f
+                )
+              )
+            }, 200)
+
+            // Try to copy the file
+            try {
+              const copyResult = await copyFileToWorkingDirectory(originalFile)
+              
+              // Update file status
+              setLocalFiles(prevFiles =>
+                prevFiles.map((f) => 
+                  f.id === geminiFile.id 
+                    ? { 
+                        ...f, 
+                        uploadProgress: 100,
+                        copyStatus: copyResult.success ? 'success' : 'error',
+                        copyError: copyResult.error
+                      } 
+                    : f
+                )
+              )
+            } catch (error) {
+              setLocalFiles(prevFiles =>
+                prevFiles.map((f) => 
+                  f.id === geminiFile.id 
+                    ? { 
+                        ...f, 
+                        uploadProgress: 100,
+                        copyStatus: 'error',
+                        copyError: error instanceof Error ? error.message : 'Copy failed'
+                      } 
+                    : f
+                )
+              )
+            }
+          }
+        })
+
+        return [...currentFiles, ...newFiles]
+      })
+    },
+    [maxFiles, maxSize, copyFileToWorkingDirectory],
+  )
+
+  const handleFileSelect = useCallback((selectedFiles: FileList | null) => {
+    if (!selectedFiles) return;
+
+    const filesArray = Array.from(selectedFiles);
+    
+    // Update files using the current state
+    setLocalFiles(currentFiles => {
+      const newFiles: GeminiFile[] = filesArray
         .filter((file) => file.size <= maxSize)
-        .slice(0, maxFiles - files.length)
+        .slice(0, maxFiles - currentFiles.length)
         .map((file) => ({
           id: Date.now().toString() + Math.random(),
           name: file.name,
@@ -40,28 +172,105 @@ export function GeminiFileUpload({
           url: URL.createObjectURL(file),
           uploadProgress: 0,
           thumbnail: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
+          copyStatus: 'pending',
         }))
 
-      // Simulate upload progress
-      newFiles.forEach((file) => {
-        let progress = 0
-        const interval = setInterval(() => {
-          progress += Math.random() * 25 + 5
-          if (progress >= 100) {
-            progress = 100
-            clearInterval(interval)
+      // Start copying files to working directory for each new file
+      newFiles.forEach(async (geminiFile) => {
+        const originalFile = filesArray.find(f => f.name === geminiFile.name)
+        if (originalFile) {
+          // Simulate upload progress while copying
+          let progress = 0
+          const progressInterval = setInterval(() => {
+            progress += Math.random() * 25 + 5
+            if (progress >= 100) {
+              progress = 100
+              clearInterval(progressInterval)
+            }
+            // Update progress using setLocalFiles
+            setLocalFiles(prevFiles => 
+              prevFiles.map((f) => 
+                f.id === geminiFile.id ? { ...f, uploadProgress: progress } : f
+              )
+            )
+          }, 200)
+
+          // Try to copy the file
+          try {
+            const copyResult = await copyFileToWorkingDirectory(originalFile)
+            
+            // Update file status
+            setLocalFiles(prevFiles =>
+              prevFiles.map((f) => 
+                f.id === geminiFile.id 
+                  ? { 
+                      ...f, 
+                      uploadProgress: 100,
+                      copyStatus: copyResult.success ? 'success' : 'error',
+                      copyError: copyResult.error
+                    } 
+                  : f
+              )
+            )
+          } catch (error) {
+            setLocalFiles(prevFiles =>
+              prevFiles.map((f) => 
+                f.id === geminiFile.id 
+                  ? { 
+                      ...f, 
+                      uploadProgress: 100,
+                      copyStatus: 'error',
+                      copyError: error instanceof Error ? error.message : 'Copy failed'
+                    } 
+                  : f
+              )
+            )
           }
-          onFilesChange((prev) => prev.map((f) => (f.id === file.id ? { ...f, uploadProgress: progress } : f)))
-        }, 200)
+        }
       })
 
-      onFilesChange([...files, ...newFiles])
-    },
-    [files, onFilesChange, maxFiles, maxSize],
-  )
+      return [...currentFiles, ...newFiles]
+    })
+  }, [maxFiles, maxSize, copyFileToWorkingDirectory])
+
+  const handleChooseFiles = () => {
+    fileInputRef.current?.click()
+  }
 
   const removeFile = (fileId: string) => {
-    onFilesChange(files.filter((f) => f.id !== fileId))
+    setLocalFiles(localFiles.filter((f) => f.id !== fileId))
+  }
+
+  const handleClearAll = () => {
+    setLocalFiles([])
+  }
+
+  const handleUploadFiles = async () => {
+    // Process all files that have been successfully copied
+    const copiedFiles = localFiles.filter(f => f.copyStatus === 'success')
+    
+    for (const file of copiedFiles) {
+      if (onFileProcessed && readFile) {
+        try {
+          // Read the file content from the working directory
+          const result = await readFile(file.name)
+          if (result.success && result.content) {
+            onFileProcessed(file.name, result.content)
+          } else {
+            console.error(`Failed to read file ${file.name}:`, result.error)
+            // Still call onFileProcessed with empty content to trigger analysis
+            onFileProcessed(file.name, '')
+          }
+        } catch (error) {
+          console.error(`Failed to read file ${file.name}:`, error)
+          // Still call onFileProcessed with empty content to trigger analysis
+          onFileProcessed(file.name, '')
+        }
+      }
+    }
+    
+    // Clear all files after processing
+    setLocalFiles([])
   }
 
   const getFileIcon = (type: string) => {
@@ -82,6 +291,16 @@ export function GeminiFileUpload({
 
   return (
     <div className="space-y-4">
+      {/* Hidden File Input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept="*/*"
+        style={{ display: 'none' }}
+        onChange={(e) => handleFileSelect(e.target.files)}
+      />
+
       {/* Upload Zone */}
       <motion.div
         className={`relative border-2 border-dashed rounded-2xl p-8 transition-all duration-300 ${
@@ -116,20 +335,22 @@ export function GeminiFileUpload({
             Supports images, documents, and code files up to {formatFileSize(maxSize)}
           </p>
 
-          <GeminiButton variant="secondary">Choose Files</GeminiButton>
+          <GeminiButton variant="secondary" onClick={handleChooseFiles}>
+            Choose Files
+          </GeminiButton>
         </div>
       </motion.div>
 
       {/* File Grid */}
       <AnimatePresence>
-        {files.length > 0 && (
+        {localFiles.length > 0 && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
           >
-            {files.map((file, index) => (
+            {localFiles.map((file, index) => (
               <motion.div
                 key={file.id}
                 initial={{ opacity: 0, scale: 0.8 }}
@@ -162,7 +383,7 @@ export function GeminiFileUpload({
                 {file.uploadProgress !== undefined && file.uploadProgress < 100 && (
                   <div className="mb-3">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-[#5f6368] dark:text-[#9aa0a6]">Uploading...</span>
+                      <span className="text-xs text-[#5f6368] dark:text-[#9aa0a6]">Processing...</span>
                       <span className="text-xs text-[#5f6368] dark:text-[#9aa0a6]">
                         {Math.round(file.uploadProgress)}%
                       </span>
@@ -175,6 +396,34 @@ export function GeminiFileUpload({
                         transition={{ duration: 0.3 }}
                       />
                     </div>
+                  </div>
+                )}
+
+                {/* Copy Status */}
+                {file.copyStatus && (
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center space-x-2">
+                        {file.copyStatus === 'success' && (
+                          <>
+                            <FolderPlus className="w-3 h-3 text-green-500" />
+                            <span className="text-xs text-green-600 dark:text-green-400">Copied to working directory</span>
+                          </>
+                        )}
+                        {file.copyStatus === 'error' && (
+                          <>
+                            <X className="w-3 h-3 text-red-500" />
+                            <span className="text-xs text-red-600 dark:text-red-400">Copy failed</span>
+                          </>
+                        )}
+                        {file.copyStatus === 'pending' && (
+                          <span className="text-xs text-[#5f6368] dark:text-[#9aa0a6]">Copying...</span>
+                        )}
+                      </div>
+                    </div>
+                    {file.copyError && (
+                      <p className="text-xs text-red-600 dark:text-red-400">{file.copyError}</p>
+                    )}
                   </div>
                 )}
 
@@ -193,6 +442,34 @@ export function GeminiFileUpload({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Action Buttons */}
+      {localFiles.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700"
+        >
+          <GeminiButton 
+            onClick={handleClearAll}
+            variant="secondary" 
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <X className="w-4 h-4" />
+            Clear All
+          </GeminiButton>
+          <GeminiButton 
+            onClick={handleUploadFiles}
+            disabled={localFiles.length === 0 || localFiles.some(f => f.copyStatus === 'pending')}
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <Upload className="w-4 h-4" />
+            Process Files ({localFiles.filter(f => f.copyStatus === 'success').length})
+          </GeminiButton>
+        </motion.div>
+      )}
     </div>
   )
 }

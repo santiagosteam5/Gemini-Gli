@@ -18,6 +18,26 @@ export interface ElectronAPI {
   showSaveDialog: (options: any) => Promise<any>;
   showFolderDialog: (options?: any) => Promise<{ canceled: boolean; filePaths: string[] }>;
 
+  // File operations
+  copyFile: (sourcePath: string, destinationDir: string, fileName: string) => Promise<{
+    success: boolean;
+    destinationPath?: string;
+    fileName?: string;
+    error?: string;
+  }>;
+  writeFile: (content: ArrayBuffer, destinationDir: string, fileName: string) => Promise<{
+    success: boolean;
+    destinationPath?: string;
+    fileName?: string;
+    error?: string;
+  }>;
+  readFile: (filePath: string) => Promise<{
+    success: boolean;
+    content?: string;
+    size?: number;
+    error?: string;
+  }>;
+
   // Platform info
   platform: string;
   isElectron: boolean;

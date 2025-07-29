@@ -17,6 +17,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showSaveDialog: (options) => ipcRenderer.invoke('show-save-dialog', options),
   showFolderDialog: (options) => ipcRenderer.invoke('show-folder-dialog', options),
 
+  // File operations
+  copyFile: (sourcePath, destinationDir, fileName) => ipcRenderer.invoke('copy-file', { sourcePath, destinationDir, fileName }),
+  writeFile: (content, destinationDir, fileName) => ipcRenderer.invoke('write-file', { content, destinationDir, fileName }),
+  readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
+
   // Platform info
   platform: process.platform,
   isElectron: true,

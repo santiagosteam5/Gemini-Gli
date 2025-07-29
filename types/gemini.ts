@@ -17,6 +17,8 @@ export interface GeminiFile {
   url: string
   uploadProgress?: number
   thumbnail?: string
+  copyStatus?: 'pending' | 'success' | 'error'
+  copyError?: string
 }
 
 export interface GeminiCodeBlock {

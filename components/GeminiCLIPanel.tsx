@@ -22,7 +22,36 @@ export function GeminiCLIPanel({ isOpen, onToggle }: GeminiCLIPanelProps) {
   // Use shared working directory context
   const { currentDir, setCurrentDir } = useWorkingDirectory()
 
-  const suggestions = ["gemini --help", "gemini scan .", "gemini list", "gemini clean --delete"]
+  const suggestions = [
+    "gemini --help",
+    "gemini -p \"Your prompt here\"",
+    "gemini -m \"gemini-2.5-flash\" -p \"Your prompt here\"",
+    "gemini -m \"gemini-2.5-pro\" -p \"Your prompt here\"",
+    "gemini scan .",
+    "gemini list",
+    "gemini clean --delete",
+    "gemini config",
+    "gemini version",
+    "gemini models",
+    "gemini -p \"Explain this code\" < file.js",
+    "gemini -p \"Debug this error: [paste error]\"",
+    "gemini -p \"Write tests for this function\"",
+    "gemini -p \"Optimize this code for performance\"",
+    "gemini -p \"Convert this to TypeScript\"",
+    "gemini -m \"gemini-2.5-flash\" -p \"Quick question about...\"",
+    "gemini -m \"gemini-2.5-pro\" -p \"Complex analysis of...\"",
+  ]
+
+  // Helper function to set command and position cursor
+  const setCommandWithCursor = (newCommand: string, cursorPosition?: number) => {
+    setCommand(newCommand)
+    setTimeout(() => {
+      if (inputRef.current && cursorPosition !== undefined) {
+        inputRef.current.focus()
+        inputRef.current.setSelectionRange(cursorPosition, cursorPosition)
+      }
+    }, 0)
+  }
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -276,22 +305,130 @@ export function GeminiCLIPanel({ isOpen, onToggle }: GeminiCLIPanelProps) {
               </div>
 
               {/* Command Suggestions */}
-              {command && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {suggestions
-                    .filter((s) => s.toLowerCase().includes(command.toLowerCase()))
-                    .slice(0, 3)
-                    .map((suggestion, index) => (
+              {command.length > 0 && (
+                <div className="mt-3">
+                  <div className="text-xs text-gray-400 mb-2">Suggestions:</div>
+                  <div className="space-y-2">
+                    {/* Quick commands */}
+                    <div className="flex flex-wrap gap-1">
+                      {suggestions
+                        .filter((s) => s.toLowerCase().includes(command.toLowerCase()))
+                        .slice(0, 4)
+                        .map((suggestion, index) => (
+                          <motion.button
+                            key={index}
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="px-2 py-1 text-xs bg-gray-700 text-gray-300 rounded hover:bg-gray-600 transition-colors"
+                            onClick={() => setCommand(suggestion)}
+                          >
+                            {suggestion}
+                          </motion.button>
+                        ))}
+                    </div>
+                    
+                    {/* Show model-specific suggestions when typing 'gemini' */}
+                    {command.toLowerCase().includes('gemini') && !command.includes('-m') && (
+                      <div className="space-y-1">
+                        <div className="text-xs text-blue-400">Quick model commands:</div>
+                        <div className="flex flex-wrap gap-1">
+                          <motion.button
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="px-2 py-1 text-xs bg-blue-700 text-blue-200 rounded hover:bg-blue-600 transition-colors"
+                            onClick={() => {
+                              const cmd = 'gemini -m "gemini-2.5-flash" -p ""'
+                              setCommandWithCursor(cmd, cmd.length - 1)
+                            }}
+                          >
+                            Flash + prompt
+                          </motion.button>
+                          <motion.button
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="px-2 py-1 text-xs bg-purple-700 text-purple-200 rounded hover:bg-purple-600 transition-colors"
+                            onClick={() => {
+                              const cmd = 'gemini -m "gemini-2.5-pro" -p ""'
+                              setCommandWithCursor(cmd, cmd.length - 1)
+                            }}
+                          >
+                            Pro + prompt
+                          </motion.button>
+                          <motion.button
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="px-2 py-1 text-xs bg-green-700 text-green-200 rounded hover:bg-green-600 transition-colors"
+                            onClick={() => {
+                              const cmd = 'gemini -p ""'
+                              setCommandWithCursor(cmd, cmd.length - 1)
+                            }}
+                          >
+                            Default + prompt
+                          </motion.button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Show prompt suggestions when typing -p */}
+                    {command.includes('-p') && command.includes('""') && (
+                      <div className="space-y-1">
+                        <div className="text-xs text-green-400">Common prompts:</div>
+                        <div className="flex flex-wrap gap-1">
+                          {[
+                            "Explain this code",
+                            "Debug this error",
+                            "Write tests for",
+                            "Optimize performance",
+                            "Add comments to",
+                            "Convert to TypeScript"
+                          ].map((prompt, index) => (
+                            <motion.button
+                              key={index}
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              className="px-2 py-1 text-xs bg-green-700 text-green-200 rounded hover:bg-green-600 transition-colors"
+                              onClick={() => setCommand(command.replace('""', `"${prompt}:"`))}
+                            >
+                              {prompt}
+                            </motion.button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Show help when input is empty */}
+              {!command && (
+                <div className="mt-3">
+                  <div className="text-xs text-gray-400 mb-2">Popular commands:</div>
+                  <div className="grid grid-cols-2 gap-1">
+                    {[
+                      { cmd: "gemini --help", desc: "Show help", cursor: undefined },
+                      { cmd: "gemini models", desc: "List models", cursor: undefined },
+                      { cmd: "gemini -p \"\"", desc: "Send prompt", cursor: 12 },
+                      { cmd: "gemini version", desc: "Show version", cursor: undefined }
+                    ].map((item, index) => (
                       <motion.button
                         key={index}
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="px-2 py-1 text-xs bg-gray-700 text-gray-300 rounded hover:bg-gray-600 transition-colors"
-                        onClick={() => setCommand(suggestion)}
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="p-2 text-left bg-gray-700/50 rounded hover:bg-gray-600 transition-colors"
+                        onClick={() => {
+                          if (item.cursor !== undefined) {
+                            setCommandWithCursor(item.cmd, item.cursor)
+                          } else {
+                            setCommand(item.cmd)
+                          }
+                        }}
                       >
-                        {suggestion}
+                        <div className="text-xs text-white font-mono">{item.cmd}</div>
+                        <div className="text-xs text-gray-400">{item.desc}</div>
                       </motion.button>
                     ))}
+                  </div>
                 </div>
               )}
             </div>
